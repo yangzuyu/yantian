@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>盐田网格工单中心</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background-color: #f8f9fa;
+            background-image: linear-gradient(120deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background-color: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .container:hover {
+            transform: translateY(-5px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            font-weight: 600;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            border-radius: 2px;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .form-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            border-radius: 12px;
+            padding: 25px 15px;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #eaeaea;
+        }
+        .form-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.1);
+            border-color: transparent;
+        }
+        .form-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #f0f7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            font-size: 28px;
+            color: #3498db;
+            transition: all 0.3s ease;
+        }
+        .form-card:nth-child(2) .form-icon {
+            background-color: #fff0f5;
+            color: #e74c3c;
+        }
+        .form-card:nth-child(3) .form-icon {
+            background-color: #f0fff4;
+            color: #2ecc71;
+        }
+        .form-card:nth-child(4) .form-icon {
+            background-color: #fff9f0;
+            color: #f39c12;
+        }
+        .form-card:nth-child(5) .form-icon {
+            background-color: #f0f0ff;
+            color: #9b59b6;
+        }
+        .form-card:hover .form-icon {
+            transform: scale(1.1);
+        }
+        .form-title {
+            font-weight: 500;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+        .form-card:hover .form-title {
+            color: #3498db;
+        }
+        .form-card:nth-child(2):hover .form-title {
+            color: #e74c3c;
+        }
+        .form-card:nth-child(3):hover .form-title {
+            color: #2ecc71;
+        }
+        .form-card:nth-child(4):hover .form-title {
+            color: #f39c12;
+        }
+        .form-card:nth-child(5):hover .form-title {
+            color: #9b59b6;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 14px;
+            color: #777;
+        }
+        @media (max-width: 500px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>盐田网格工单中心</h1>
+        
+        <div class="form-grid">
+            <a href="https://www.kdocs.cn/wo/sl/v13iELSs" class="form-card" target="_blank">
+                <div class="form-icon"><i class="fas fa-chart-bar"></i></div>
+                <div class="form-title">量化表单</div>
+            </a>
+            
+            <a href="https://www.kdocs.cn/wo/sl/v14LVm3M" class="form-card" target="_blank">
+                <div class="form-icon"><i class="fas fa-sun"></i></div>
+                <div class="form-title">高温补贴打卡</div>
+            </a>
+            
+            <a href="https://www.kdocs.cn/wo/sl/v14Tqm6A" class="form-card" target="_blank">
+                <div class="form-icon"><i class="fas fa-walking"></i></div>
+                <div class="form-title">日常巡查</div>
+            </a>
+            
+            <a href="https://www.kdocs.cn/wo/sl/v13AZw0t" class="form-card" target="_blank">
+                <div class="form-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="form-title">问题上报</div>
+            </a>
+            
+            <a href="https://www.kdocs.cn/wo/sl/v13Ebhld" class="form-card" target="_blank">
+                <div class="form-icon"><i class="fas fa-tools"></i></div>
+                <div class="form-title">问题处置</div>
+            </a>
+        </div>
+        
+        <div class="footer">
+            盐田网格工单中心 &copy; 2023
+        </div>
+    </div>
+</body>
+</html>
