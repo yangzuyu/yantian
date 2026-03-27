@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地图数据管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+            color: #1f2329;
+            overflow: hidden;
+            background: #f5f6f7;
+        }
+        
+        .app { display: flex; height: 100vh; }
+        
+        /* 左侧边栏 */
+        .sidebar {
+            width: 360px;
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+        
+        .sidebar.collapsed {
+            width: 40px;
+        }
+        
+        .sidebar.collapsed .sidebar-content {
+            display: none;
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            right: -20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 60px;
+            background: #1677ff;
+            color: #fff;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            z-index: 100;
+        }
+        
+        .sidebar.collapsed .sidebar-toggle {
+            right: -20px;
+        }
+        
+        .sidebar-header {
+            padding: 16px;
+            background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+            color: white;
+        }
+        
+        .sidebar-header h1 { font-size: 16px; font-weight: 600; }
+        .sidebar-header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+        
+        .sidebar-header-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .sidebar-header-btn {
+            padding: 4px 10px;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        
+        .sidebar-header-btn:hover {
+            background: rgba(255,255,255,0.25);
+            border-color: rgba(255,255,255,0.6);
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover { background: #f0f0f0; }
+        .tab.active {
+            color: #1677ff;
+            border-bottom-color: #1677ff;
+            background: #fff;
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+            padding: 12px;
+        }
+        
+        .tab-content.active { display: block; }
+        
+        /* 面板 */
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            padding: 12px 16px;
+            background: #fafafa;
+            border-bottom: 1px solid #e8e8e8;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-body { padding: 16px; }
+        
+        /* 按钮 */
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover { border-color: #1677ff; color: #1677ff; }
+        .btn-primary { background: #1677ff; border-color: #1677ff; color: #fff; }
+        .btn-primary:hover { background: #0958d9; }
+        .btn-danger { background: #ff4d4f; border-color: #ff4d4f; color: #fff; }
+        .btn-sm { padding: 4px 8px; font-size: 12px; }
+        .btn.active { background: #1677ff; border-color: #1677ff; color: #fff; }
+        
+        /* 图层列表 */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .layer-item:hover { background: #f6ffed; }
+        .layer-item:hover .layer-delete { opacity: 1; }
+        .layer-item.active { background: #e6f7ff; border-left: 3px solid #1677ff; }
+        
+        .layer-visibility {
+            width: 20px;
+            margin-right: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .layer-symbol {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .layer-info { flex: 1; }
+        .layer-name { font-weight: 500; font-size: 13px; }
+        .layer-meta { font-size: 11px; color: #8c8c8c; margin-top: 2px; }
+        .layer-delete {
+            opacity: 0;
+            color: #ff4d4f;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 4px;
+            transition: opacity 0.2s;
+        }
+        
+        /* 表单 */
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #595959;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1677ff;
+        }
+        
+        .form-row { display: flex; gap: 8px; }
+        .form-row .form-group { flex: 1; }
+        
+        /* 表格 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .data-table th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #595959;
+        }
+        
+        .data-table tr:hover { background: #f6ffed; cursor: pointer; }
+        .data-table tr.selected { background: #e6f7ff; }
+        
+        .data-table th:first-child,
+        .data-table td:first-child {
+            width: 40px;
+            text-align: center;
+        }
+        
+        .data-table input[type="checkbox"] {
+            cursor: pointer;
+        }
+        
+        /* 地图 */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #f0f2f5;
+        }
+        
+        #map { width: 100%; height: 100%; }
+        
+        /* 工具栏 */
+        .toolbar {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 100;
+        }
+        
+        .toolbar-group {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 6px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        /* 图例 */
+        .legend {
+            position: absolute;
+            bottom: 80px;
+            right: 16px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 12px;
+            min-width: 140px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .legend-title { font-weight: 600; margin-bottom: 8px; font-size: 13px; }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        /* 底图切换 */
+        .basemap-bar {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 4px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .basemap-item {
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .basemap-item:hover { background: #f0f0f0; }
+        .basemap-item.active { background: #1677ff; color: #fff; }
+        
+        /* 底图要素控制 */
+        .map-features-bar {
+            position: absolute;
+            bottom: 56px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 4px 8px;
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+        }
+        
+        .map-feature-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .map-feature-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+        
+        /* 弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal-overlay.show { display: flex; }
+        
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            width: 420px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e8e8e8;
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body { padding: 20px; }
+        .modal-footer {
+            padding: 12px 20px;
+            border-top: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        
+        /* 字段列表 */
+        .field-list { margin-bottom: 12px; }
+        .field-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        
+        .field-item input { flex: 1; }
+        .field-item select { width: 100px; }
+        
+        /* 图标选择器 */
+        .icon-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .icon-option {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #d9d9d9;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fff;
+        }
+        
+        .icon-option:hover { border-color: #1677ff; }
+        .icon-option.active {
+            border-color: #1677ff;
+            background: #e6f7ff;
+        }
+        
+        /* 筛选器 */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: #fafafa;
+            border-radius: 6px;
+        }
+        
+        .filter-bar select,
+        .filter-bar input { flex: 1; }
+        
+        /* 加载 */
+        .loading {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #1677ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8c8c8c;
+        }
+        
+        .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
+        
+        /* 图片上传 */
+        .upload-area {
+            border: 2px dashed #d9d9d9;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-area:hover {
+            border-color: #1677ff;
+            background: #f5f5f5;
+        }
+        
+        .upload-area input { display: none; }
+        
+        .image-preview {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .image-preview img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        /* 下钻弹窗 - 表格形式 */
+        .drill-modal {
+            width: 500px;
+            max-width: 95%;
+        }
+        
+        .drill-image-container {
+            width: 100%;
+            height: 200px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        
+        .drill-image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .drill-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .drill-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .drill-table td:first-child {
+            width: 100px;
+            color: #8c8c8c;
+            font-weight: 500;
+            background: #fafafa;
+        }
+        
+        /* 颜色映射 */
+        .color-map-list {
+            margin-top: 12px;
+        }
+        
+        /* 可折叠面板 */
+        .collapsible-panel {
+            margin-bottom: 12px;
+        }
+        
+        .collapsible-header {
+            padding: 12px 16px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .collapsible-header:hover {
+            background: #f0f0f0;
+        }
+        
+        .collapsible-header .arrow {
+            transition: transform 0.3s;
+            font-size: 12px;
+        }
+        
+        .collapsible-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+        
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            max-height: 2000px;
+        }
+        
+        .collapsible-content.collapsed {
+            max-height: 0;
+        }
+        
+        .collapsible-content .panel-body {
+            padding-top: 16px;
+        }
+        
+        .color-map-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        
+        .color-map-item input[type="text"] {
+            flex: 1;
+        }
+        
+        .color-map-item input[type="color"] {
+            width: 40px;
+            height: 28px;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- 左侧边栏 -->
+        <div class="sidebar" id="sidebar">
+            <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠/展开">◀</button>
+            <div class="sidebar-content">
+            <div class="sidebar-header">
+                <h1>🗺️ 地图数据管理</h1>
+                <p>地理信息数据可视化平台</p>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('layers')">📁 图层</div>
+                <div class="tab" onclick="switchTab('data')">📊 数据</div>
+                <div class="tab" onclick="switchTab('style')">🎨 样式</div>
+            </div>
+            
+            <!-- 图层面板 -->
+            <div class="tab-content active" id="tab-layers">
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>图层列表</span>
+                        <button class="btn btn-primary btn-sm" onclick="showCreateLayerModal()">+ 新建</button>
+                    </div>
+                    <div id="layerList" style="max-height: 300px; overflow-y: auto;">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📂</div>
+                            <div>暂无图层，点击新建</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">📈 图例</div>
+                    <div class="panel-body">
+                        <div id="legendContent">
+                            <div style="color: #8c8c8c; font-size: 12px;">暂无数据</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据面板 -->
+            <div class="tab-content" id="tab-data">
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>数据筛选</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="filter-bar">
+                            <select id="filterField" onchange="applyFilter()">
+                                <option value="">选择字段</option>
+                            </select>
+                            <input type="text" id="filterValue" placeholder="筛选值" oninput="applyFilter()">
+                            <button class="btn btn-sm" onclick="clearFilter()">清除</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">
+                        <span>数据记录</span>
+                        <div>
+                            <button class="btn btn-danger btn-sm" onclick="batchDelete()" id="batchDeleteBtn" style="display: none;">批量删除</button>
+                            <span id="recordCount" style="font-size: 11px; color: #8c8c8c; margin-left: 8px;">0 条</span>
+                        </div>
+                    </div>
+                    <div style="overflow-x: auto; max-height: 400px;">
+                        <table class="data-table" id="dataTable">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 样式面板 -->
+            <div class="tab-content" id="tab-style">
+                <!-- 底图设置 -->
+                <!-- 数据管理 -->
+                <div class="collapsible-panel">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <span>💾 数据管理</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label>数据迁移</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button class="btn btn-sm" onclick="exportData()">📤 导出数据</button>
+                                    <button class="btn btn-sm" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
+                                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(this)">
+                                </div>
+                                <div style="font-size: 11px; color: #8c8c8c; margin-top: 8px;">
+                                    导出数据文件可在其他电脑导入使用
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 12px;">
+                                <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑️ 清空所有数据</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="collapsible-panel">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <span>🗺️ 底图设置</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="panel-body">
+                            <div class="form-group">
+                                <label>底图样式</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button class="btn btn-sm" id="btnNormal" onclick="setBasemapFromPanel('normal')">标准</button>
+                                    <button class="btn btn-sm" id="btnLight" onclick="setBasemapFromPanel('light')">浅色</button>
+                                    <button class="btn btn-sm" id="btnGrey" onclick="setBasemapFromPanel('grey')">灰色</button>
+                                    <button class="btn btn-sm" id="btnDark" onclick="setBasemapFromPanel('dark')">深色</button>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 12px;">
+                                <label>显示要素</label>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label class="map-feature-item" style="justify-content: flex-start;"><input type="checkbox" checked onchange="toggleMapFeature('bg', this)">区域面</label>
+                                    <label class="map-feature-item" style="justify-content: flex-start;"><input type="checkbox" checked onchange="toggleMapFeature('road', this)">道路</label>
+                                    <label class="map-feature-item" style="justify-content: flex-start;"><input type="checkbox" checked onchange="toggleMapFeature('building', this)">建筑</label>
+                                    <label class="map-feature-item" style="justify-content: flex-start;"><input type="checkbox" checked onchange="toggleMapFeature('point', this)">标签</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="collapsible-panel" id="stylePanel" style="display: none;">
+                    <div class="collapsible-header" onclick="toggleCollapse(this)">
+                        <span>🎨 图标样式</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                    <div class="panel-body" id="pointStylePanel" style="display: none;">
+                        <div class="form-group">
+                            <label>图标形状</label>
+                            <div class="icon-selector">
+                                <div class="icon-option active" onclick="selectIconShape('circle', this)" title="圆形">⭕</div>
+                                <div class="icon-option" onclick="selectIconShape('pin', this)" title="图钉">📍</div>
+                                <div class="icon-option" onclick="selectIconShape('square', this)" title="方形">⬜</div>
+                                <div class="icon-option" onclick="selectIconShape('diamond', this)" title="菱形">🔷</div>
+                                <div class="icon-option" onclick="selectIconShape('cross', this)" title="十字">✚</div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>大小 (px)</label>
+                                <input type="number" id="markerSize" value="12" min="4" max="50" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>填充颜色</label>
+                                <input type="color" id="markerColor" value="#1677ff" onchange="updateStyle()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>边框宽度</label>
+                                <input type="number" id="markerStrokeWidth" value="2" min="0" max="5" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>边框颜色</label>
+                                <input type="color" id="markerStrokeColor" value="#ffffff" onchange="updateStyle()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-body" id="lineStylePanel" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>线条颜色</label>
+                                <input type="color" id="lineColor" value="#1677ff" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>线条宽度</label>
+                                <input type="number" id="lineWidth" value="3" min="1" max="10" onchange="updateStyle()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-body" id="polygonStylePanel" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>填充颜色</label>
+                                <input type="color" id="polygonFillColor" value="#1677ff" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>透明度 (%)</label>
+                                <input type="number" id="polygonOpacity" value="30" min="0" max="100" onchange="updateStyle()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>边框颜色</label>
+                                <input type="color" id="polygonStrokeColor" value="#1677ff" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>边框宽度</label>
+                                <input type="number" id="polygonStrokeWidth" value="2" min="0" max="5" onchange="updateStyle()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>按字段着色</label>
+                            <select id="colorField" onchange="toggleColorMapping()">
+                                <option value="">不使用</option>
+                            </select>
+                        </div>
+                        <div id="colorMappingPanel" style="display: none;">
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 12px; color: #595959;">配色方案</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                                    <button class="btn btn-sm" onclick="applyColorScheme('default')">默认</button>
+                                    <button class="btn btn-sm" onclick="applyColorScheme('warm')">暖色</button>
+                                    <button class="btn btn-sm" onclick="applyColorScheme('cool')">冷色</button>
+                                    <button class="btn btn-sm" onclick="applyColorScheme('contrast')">高对比</button>
+                                    <button class="btn btn-sm" onclick="applyColorScheme('pastel')">柔和</button>
+                                </div>
+                            </div>
+                            <div class="color-map-list" id="colorMapList"></div>
+                            <button class="btn btn-sm" onclick="addColorMap()" style="margin-top: 8px;">+ 添加颜色映射</button>
+                        </div>
+                        
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label>标签字段</label>
+                            <select id="labelField" onchange="updateStyle()">
+                                <option value="">不显示标签</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <label>标签样式</label>
+                            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                    <input type="radio" name="labelStyle" value="transparent" checked onchange="updateStyle()"> 透明背景
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                    <input type="radio" name="labelStyle" value="filled" onchange="updateStyle()"> 填充背景
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>字体颜色</label>
+                                <input type="color" id="labelColor" value="#333333" onchange="updateStyle()">
+                            </div>
+                            <div class="form-group">
+                                <label>描边颜色</label>
+                                <input type="color" id="labelStrokeColor" value="#ffffff" onchange="updateStyle()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>描边宽度</label>
+                            <input type="number" id="labelStrokeWidth" value="0" min="0" max="5" onchange="updateStyle()">
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+        
+        <!-- 地图区域 -->
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <div style="margin-top: 12px; color: #8c8c8c;">地图加载中...</div>
+            </div>
+            
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <button class="btn" id="btnPoint" onclick="startDraw('point')" title="画点">📍</button>
+                    <button class="btn" id="btnLine" onclick="startDraw('polyline')" title="画线">📏</button>
+                    <button class="btn" id="btnPolygon" onclick="startDraw('polygon')" title="画面">⬡</button>
+                    <button class="btn" id="btnCircle" onclick="startDraw('circle')" title="画圆">⭕</button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="btn" onclick="finishDraw()" title="完成">✓</button>
+                    <button class="btn btn-danger" onclick="clearAll()" title="清空">🗑️</button>
+                </div>
+            </div>
+            
+            <div class="legend" id="legend">
+                <div class="legend-title">图例</div>
+                <div id="legendItems"></div>
+            </div>
+            
+            <div class="basemap-bar">
+                <div class="basemap-item active" onclick="setBasemap('normal', this)">标准</div>
+                <div class="basemap-item" onclick="setBasemap('light', this)">浅色</div>
+                <div class="basemap-item" onclick="setBasemap('grey', this)">灰色</div>
+                <div class="basemap-item" onclick="setBasemap('dark', this)">深色</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新建图层弹窗 -->
+    <div class="modal-overlay" id="layerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>新建图层</span>
+                <span style="cursor: pointer;" onclick="hideModal('layerModal')">✕</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>图层名称</label>
+                    <input type="text" id="newLayerName" placeholder="例如：门店分布">
+                </div>
+                <div class="form-group">
+                    <label>图层类型</label>
+                    <select id="newLayerType">
+                        <option value="point">点 - 标记位置</option>
+                        <option value="polyline">线 - 路线/边界</option>
+                        <option value="polygon">面 - 区域范围</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>自定义字段</label>
+                    <div class="field-list" id="fieldList">
+                        <div class="field-item">
+                            <input type="text" value="名称" readonly style="background: #f5f5f5; flex: 2;">
+                            <select disabled style="flex: 1;"><option>文本</option></select>
+                            <span style="width: 20px;"></span>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm" onclick="addField()" style="margin-top: 8px;">+ 添加字段</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideModal('layerModal')">取消</button>
+                <button class="btn btn-primary" onclick="createLayer()">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 下钻详情弹窗 -->
+    <div class="modal-overlay" id="drillModal">
+        <div class="modal drill-modal">
+            <div class="modal-header">
+                <span>要素详情</span>
+                <span style="cursor: pointer;" onclick="hideModal('drillModal')">✕</span>
+            </div>
+            <div class="modal-body">
+                <div class="drill-image-container" id="drillImageContainer" style="display: none;">
+                    <div style="color: #999;">暂无图片</div>
+                </div>
+                <table class="drill-table" id="drillTable"></table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="deleteCurrentFeature()">删除</button>
+                <button class="btn btn-primary" onclick="editCurrentFeature()">编辑</button>
+                <button class="btn" onclick="hideModal('drillModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 数据编辑弹窗 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>编辑数据</span>
+                <span style="cursor: pointer;" onclick="hideModal('editModal')">✕</span>
+            </div>
+            <div class="modal-body" id="editForm"></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideModal('editModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window._AMapSecurityConfig = {
+            securityJsCode: 'c3e474d80dd5367b36f7665e20db3d0b'
+        };
+    </script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=f959961f8b1d9be19c93c2d44d95a8b6&plugin=AMap.Scale,AMap.ToolBar,AMap.MouseTool"></script>
+    <script>
+        // ==================== 全局状态 ====================
+        let map = null;
+        let mouseTool = null;
+        let layers = [];
+        let currentLayer = null;
+        let currentFeature = null;
+        let isDrawing = false;
+        const STORAGE_KEY = 'gis_map_data';
+                
+        // HTML转义函数（XSS防护）
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+                
+        // ==================== 预设配色方案 ====================
+        const COLOR_PALETTES = {
+            2: ['#1677ff', '#f5222d'],
+            3: ['#1677ff', '#52c41a', '#f5222d'],
+            4: ['#1677ff', '#52c41a', '#faad14', '#f5222d'],
+            5: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1'],
+            6: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2'],
+            7: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96'],
+            8: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'],
+            9: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb'],
+            10: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb', '#a0d911']
+        };
+        
+        // 获取预设配色方案
+        function getPresetColors(count) {
+            if (count <= 2) return COLOR_PALETTES[2];
+            if (count <= 3) return COLOR_PALETTES[3];
+            if (count <= 4) return COLOR_PALETTES[4];
+            if (count <= 5) return COLOR_PALETTES[5];
+            if (count <= 6) return COLOR_PALETTES[6];
+            if (count <= 7) return COLOR_PALETTES[7];
+            if (count <= 8) return COLOR_PALETTES[8];
+            if (count <= 9) return COLOR_PALETTES[9];
+            return COLOR_PALETTES[10];
+        }
+        
+        // ==================== 初始化 ====================
+        window.onload = initMap;
+        
+        function initMap() {
+            try {
+                map = new AMap.Map('map', {
+                    zoom: 4,
+                    center: [105, 35],
+                    mapStyle: 'amap://styles/normal'
+                });
+                
+                map.addControl(new AMap.Scale());
+                map.addControl(new AMap.ToolBar({ position: 'RB' }));
+                
+                mouseTool = new AMap.MouseTool(map);
+                mouseTool.on('draw', onDrawComplete);
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                // 加载本地存储的数据，如果没有则创建示例数据
+                loadData();
+            } catch (e) {
+                console.error('地图初始化失败:', e);
+            }
+        }
+        
+        // ==================== 数据持久化 ====================
+        function saveData() {
+            try {
+                // 将图层数据序列化（不包括overlay对象，因为无法序列化）
+                const dataToSave = getSerializableData();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            } catch (e) {
+                console.error('保存数据失败:', e);
+            }
+        }
+        
+        // 获取可序列化的图层数据（用于导出和保存）
+        function getSerializableData() {
+            return layers.map(layer => ({
+                id: layer.id,
+                name: layer.name,
+                type: layer.type,
+                visible: layer.visible,
+                fields: layer.fields,
+                fieldTypes: layer.fieldTypes,
+                style: layer.style,
+                colorMapping: layer.colorMapping,
+                features: layer.features.map(f => ({
+                    id: f.id,
+                    geometry: f.geometry,
+                    properties: f.properties
+                }))
+            }));
+        }
+        
+        // ==================== 数据导出 ====================
+        function exportData() {
+            try {
+                const data = getSerializableData();
+                if (data.length === 0) {
+                    alert('当前没有数据可导出');
+                    return;
+                }
+                
+                const jsonStr = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // 生成文件名：地图数据_YYYYMMDD_HHmmss.json
+                const now = new Date();
+                const timestamp = now.getFullYear() +
+                    String(now.getMonth() + 1).padStart(2, '0') +
+                    String(now.getDate()).padStart(2, '0') + '_' +
+                    String(now.getHours()).padStart(2, '0') +
+                    String(now.getMinutes()).padStart(2, '0') +
+                    String(now.getSeconds()).padStart(2, '0');
+                const filename = `地图数据_${timestamp}.json`;
+                
+                // 创建下载链接
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert(`已成功导出 ${data.length} 个图层的数据`);
+            } catch (e) {
+                console.error('导出数据失败:', e);
+                alert('导出数据失败: ' + e.message);
+            }
+        }
+        
+        function loadData() {
+            try {
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    if (parsedData && parsedData.length > 0) {
+                        // 恢复图层数据
+                        layers = parsedData.map(layerData => ({
+                            ...layerData,
+                            features: layerData.features.map(f => ({
+                                ...f,
+                                overlay: null // 重新创建时生成
+                            }))
+                        }));
+                        // 重新创建地图覆盖物
+                        recreateOverlays();
+                        renderLayers();
+                        if (layers.length > 0) {
+                            selectLayer(layers[0].id);
+                        }
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('加载数据失败:', e);
+            }
+            // 没有保存的数据，创建示例数据
+            createSampleData();
+        }
+        
+        function recreateOverlays() {
+            layers.forEach(layer => {
+                layer.features.forEach(feature => {
+                    if (feature.geometry) {
+                        createOverlayFromGeometry(feature, layer);
+                    }
+                });
+            });
+        }
+        
+        function createOverlayFromGeometry(feature, layer) {
+            const style = layer.style;
+            let overlay = null;
+            
+            switch (feature.geometry.type) {
+                case 'Point':
+                    const pos = feature.geometry.coordinates;
+                    overlay = new AMap.Marker({
+                        position: pos,
+                        icon: createMarkerIcon(style),
+                        map: layer.visible ? map : null
+                    });
+                    break;
+                case 'LineString':
+                    const linePath = feature.geometry.coordinates.map(c => new AMap.LngLat(c[0], c[1]));
+                    overlay = new AMap.Polyline({
+                        path: linePath,
+                        strokeColor: style.color,
+                        strokeWeight: style.width,
+                        map: layer.visible ? map : null
+                    });
+                    break;
+                case 'Polygon':
+                    const polygonPath = feature.geometry.coordinates[0].map(c => new AMap.LngLat(c[0], c[1]));
+                    overlay = new AMap.Polygon({
+                        path: polygonPath,
+                        fillColor: style.fillColor,
+                        fillOpacity: style.fillOpacity,
+                        strokeColor: style.strokeColor,
+                        strokeWeight: style.strokeWidth,
+                        map: layer.visible ? map : null
+                    });
+                    break;
+                case 'Circle':
+                    const center = feature.geometry.center;
+                    overlay = new AMap.Circle({
+                        center: center,
+                        radius: feature.geometry.radius,
+                        fillColor: style.fillColor,
+                        fillOpacity: style.fillOpacity,
+                        strokeColor: style.strokeColor,
+                        strokeWeight: style.strokeWidth,
+                        map: layer.visible ? map : null
+                    });
+                    break;
+            }
+            
+            if (overlay) {
+                feature.overlay = overlay;
+                overlay.on('click', () => drillDown(feature));
+                renderFeature(feature, layer);
+            }
+        }
+        
+        // ==================== 示例数据 ====================
+        function createSampleData() {
+            const layer1 = createLayerObj('门店分布', 'point', ['名称', '类型', '销售额', '负责人', '图片'], 
+                { '名称': 'text', '类型': 'text', '销售额': 'text', '负责人': 'text', '图片': 'image' });
+            layer1.features = [
+                { id: 1, geometry: { type: 'Point', coordinates: [116.4074, 39.9042] }, properties: { '名称': '北京总店', '类型': '旗舰店', '销售额': '500万', '负责人': '张三', '图片': '' } },
+                { id: 2, geometry: { type: 'Point', coordinates: [121.4737, 31.2304] }, properties: { '名称': '上海分店', '类型': '标准店', '销售额': '300万', '负责人': '李四', '图片': '' } }
+            ];
+            
+            layers = [layer1];
+            renderLayers();
+            selectLayer(layer1.id);
+        }
+        
+        function createLayerObj(name, type, fields, fieldTypes) {
+            return {
+                id: Date.now() + Math.random(),
+                name: name,
+                type: type,
+                visible: true,
+                fields: fields,
+                fieldTypes: fieldTypes || {},
+                style: getDefaultStyle(type),
+                colorMapping: {},
+                features: []
+            };
+        }
+        
+        function getDefaultStyle(type) {
+            const colors = ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            switch(type) {
+                case 'point':
+                    return { shape: 'circle', size: 12, color: color, strokeWidth: 2, strokeColor: '#fff', labelField: '', labelStyle: 'transparent', labelColor: '#333333', labelStrokeColor: '#ffffff', labelStrokeWidth: 0, colorField: '' };
+                case 'polyline':
+                    return { color: color, width: 3, labelField: '', labelStyle: 'transparent', labelColor: '#333333', labelStrokeColor: '#ffffff', labelStrokeWidth: 0, colorField: '' };
+                case 'polygon':
+                    return { fillColor: color, fillOpacity: 0.3, strokeColor: color, strokeWidth: 2, labelField: '', labelStyle: 'transparent', labelColor: '#333333', labelStrokeColor: '#ffffff', labelStrokeWidth: 0, colorField: '' };
+                default:
+                    return {};
+            }
+        }
+        
+        // ==================== 图层管理 ====================
+        function renderLayers() {
+            const container = document.getElementById('layerList');
+            
+            if (layers.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div>暂无图层</div></div>';
+                return;
+            }
+            
+            container.innerHTML = layers.map(layer => `
+                <div class="layer-item ${currentLayer?.id === layer.id ? 'active' : ''}" onclick="selectLayer(${layer.id})">
+                    <span class="layer-visibility" onclick="event.stopPropagation(); toggleVisibility(${layer.id})">${layer.visible ? '👁️' : '🚫'}</span>
+                    <div class="layer-symbol" style="background: ${getLayerColor(layer)}"></div>
+                    <div class="layer-info">
+                        <div class="layer-name">${layer.name}</div>
+                        <div class="layer-meta">${layer.type === 'point' ? '点' : layer.type === 'polyline' ? '线' : '面'} · ${layer.features.length} 个要素</div>
+                    </div>
+                    <span class="layer-delete" onclick="event.stopPropagation(); deleteLayer(${layer.id})">🗑️</span>
+                </div>
+            `).join('');
+            
+            updateLegend();
+            updateDataTable();
+        }
+        
+        function getLayerColor(layer) {
+            if (layer.type === 'point') return layer.style.color;
+            if (layer.type === 'polyline') return layer.style.color;
+            return layer.style.fillColor;
+        }
+        
+        function selectLayer(layerId) {
+            currentLayer = layers.find(l => l.id === layerId);
+            renderLayers();
+            
+            if (currentLayer) {
+                document.getElementById('stylePanel').style.display = 'block';
+                loadStylePanel();
+                updateFieldSelects();
+            }
+        }
+        
+        function toggleVisibility(layerId) {
+            const layer = layers.find(l => l.id === layerId);
+            if (!layer) return;
+            
+            layer.visible = !layer.visible;
+            
+            layer.features.forEach(feature => {
+                if (feature.overlay) {
+                    if (layer.visible) {
+                        feature.overlay.setMap(map);
+                        renderFeature(feature, layer);
+                    } else {
+                        feature.overlay.setMap(null);
+                    }
+                }
+            });
+            
+            renderLayers();
+        }
+        
+        // ==================== 绘制功能 ====================
+        function startDraw(type) {
+            if (!currentLayer) {
+                alert('请先选择一个图层');
+                return;
+            }
+            
+            if (currentLayer.type !== type && !(type === 'circle' && currentLayer.type === 'polygon')) {
+                alert('图层类型不匹配');
+                return;
+            }
+            
+            isDrawing = true;
+            document.querySelectorAll('.toolbar-group .btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn' + (type === 'polyline' ? 'Line' : type.charAt(0).toUpperCase() + type.slice(1))).classList.add('active');
+            
+            const style = currentLayer.style;
+            
+            switch(type) {
+                case 'point':
+                    mouseTool.marker({ icon: createMarkerIcon(style) });
+                    break;
+                case 'polyline':
+                    mouseTool.polyline({ strokeColor: style.color, strokeWeight: style.width });
+                    break;
+                case 'polygon':
+                    mouseTool.polygon({
+                        fillColor: style.fillColor,
+                        fillOpacity: style.fillOpacity,
+                        strokeColor: style.strokeColor,
+                        strokeWeight: style.strokeWidth
+                    });
+                    break;
+                case 'circle':
+                    mouseTool.circle({
+                        fillColor: style.fillColor,
+                        fillOpacity: style.fillOpacity,
+                        strokeColor: style.strokeColor,
+                        strokeWeight: style.strokeWidth
+                    });
+                    break;
+            }
+        }
+        
+        function createMarkerIcon(style, colorOverride) {
+            const size = style.size || 12;
+            const color = colorOverride || style.color || '#1677ff';
+            const strokeColor = style.strokeColor || '#fff';
+            const strokeWidth = style.strokeWidth || 2;
+            const shape = style.shape || 'circle';
+            
+            // 无边框时，stroke设置为透明
+            const actualStrokeWidth = strokeWidth === 0 ? 0 : strokeWidth;
+            const actualStrokeColor = strokeWidth === 0 ? 'transparent' : strokeColor;
+            
+            let svg = '';
+            switch(shape) {
+                case 'circle':
+                    svg = `<svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg"><circle cx="${size}" cy="${size}" r="${size-actualStrokeWidth}" fill="${color}" stroke="${actualStrokeColor}" stroke-width="${actualStrokeWidth}"/></svg>`;
+                    break;
+                case 'pin':
+                    svg = `<svg width="${size*2}" height="${size*2.5}" xmlns="http://www.w3.org/2000/svg"><path d="M${size},${size*2.3} L${size-size*0.4},${size*1.4} A${size*0.7},${size*0.7} 0 1,1 ${size+size*0.4},${size*1.4} Z" fill="${color}" stroke="${actualStrokeColor}" stroke-width="${actualStrokeWidth}"/><circle cx="${size}" cy="${size*0.9}" r="${size*0.25}" fill="${actualStrokeColor}"/></svg>`;
+                    break;
+                case 'square':
+                    svg = `<svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg"><rect x="${actualStrokeWidth}" y="${actualStrokeWidth}" width="${size*2-actualStrokeWidth*2}" height="${size*2-actualStrokeWidth*2}" fill="${color}" stroke="${actualStrokeColor}" stroke-width="${actualStrokeWidth}"/></svg>`;
+                    break;
+                case 'diamond':
+                    svg = `<svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg"><polygon points="${size},${actualStrokeWidth} ${size*2-actualStrokeWidth},${size} ${size},${size*2-actualStrokeWidth} ${actualStrokeWidth},${size}" fill="${color}" stroke="${actualStrokeColor}" stroke-width="${actualStrokeWidth}"/></svg>`;
+                    break;
+                case 'cross':
+                    const arm = size * 0.8;
+                    const thick = Math.max(2, size * 0.25);
+                    svg = `<svg width="${size*2}" height="${size*2}" xmlns="http://www.w3.org/2000/svg"><rect x="${size-thick/2}" y="${size-arm}" width="${thick}" height="${arm*2}" fill="${color}"/><rect x="${size-arm}" y="${size-thick/2}" width="${arm*2}" height="${thick}" fill="${color}"/></svg>`;
+                    break;
+            }
+            
+            return new AMap.Icon({
+                image: 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))),
+                size: new AMap.Size(size*2, shape==='pin'?size*2.5:size*2),
+                imageSize: new AMap.Size(size*2, shape==='pin'?size*2.5:size*2)
+            });
+        }
+        
+        function onDrawComplete(e) {
+            const overlay = e.obj;
+            
+            const feature = {
+                id: Date.now(),
+                overlay: overlay,
+                properties: {}
+            };
+            
+            currentLayer.fields.forEach(field => {
+                feature.properties[field] = field === '图片' ? '' : '';
+            });
+            
+            if (overlay instanceof AMap.Marker) {
+                const pos = overlay.getPosition();
+                feature.geometry = { type: 'Point', coordinates: [pos.lng, pos.lat] };
+            } else if (overlay instanceof AMap.Polyline) {
+                const path = overlay.getPath();
+                feature.geometry = { type: 'LineString', coordinates: path.map(p => [p.lng, p.lat]) };
+            } else if (overlay instanceof AMap.Polygon) {
+                const path = overlay.getPath();
+                feature.geometry = { type: 'Polygon', coordinates: [path.map(p => [p.lng, p.lat])] };
+            } else if (overlay instanceof AMap.Circle) {
+                const center = overlay.getCenter();
+                feature.geometry = { type: 'Circle', center: [center.lng, center.lat], radius: overlay.getRadius() };
+            }
+            
+            overlay.on('click', () => drillDown(feature));
+            
+            currentLayer.features.push(feature);
+            
+            isDrawing = false;
+            document.querySelectorAll('.toolbar-group .btn').forEach(btn => btn.classList.remove('active'));
+            
+            renderLayers();
+            saveData();
+            drillDown(feature);
+        }
+        
+        function finishDraw() {
+            isDrawing = false;
+            mouseTool.close();
+            document.querySelectorAll('.toolbar-group .btn').forEach(btn => btn.classList.remove('active'));
+        }
+        
+        function clearAll() {
+            if (!confirm('确定清空所有数据吗？')) return;
+            layers.forEach(layer => {
+                layer.features.forEach(f => { if (f.overlay) f.overlay.setMap(null); });
+                layer.features = [];
+            });
+            renderLayers();
+            saveData();
+        }
+        
+        // ==================== 样式设置 ====================
+        function loadStylePanel() {
+            if (!currentLayer) return;
+            
+            const type = currentLayer.type;
+            const style = currentLayer.style;
+            
+            document.getElementById('pointStylePanel').style.display = type === 'point' ? 'block' : 'none';
+            document.getElementById('lineStylePanel').style.display = type === 'polyline' ? 'block' : 'none';
+            document.getElementById('polygonStylePanel').style.display = type === 'polygon' ? 'block' : 'none';
+            
+            if (type === 'point') {
+                document.getElementById('markerSize').value = style.size;
+                document.getElementById('markerColor').value = style.color;
+                document.getElementById('markerStrokeWidth').value = style.strokeWidth;
+                document.getElementById('markerStrokeColor').value = style.strokeColor;
+                document.querySelectorAll('.icon-option').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.dataset.shape === style.shape) el.classList.add('active');
+                });
+            } else if (type === 'polyline') {
+                document.getElementById('lineColor').value = style.color;
+                document.getElementById('lineWidth').value = style.width;
+            } else if (type === 'polygon') {
+                document.getElementById('polygonFillColor').value = style.fillColor;
+                document.getElementById('polygonOpacity').value = Math.round(style.fillOpacity * 100);
+                document.getElementById('polygonStrokeColor').value = style.strokeColor;
+                document.getElementById('polygonStrokeWidth').value = style.strokeWidth;
+            }
+            
+            document.getElementById('labelField').value = style.labelField || '';
+            const labelStyleRadio = document.querySelector(`input[name="labelStyle"][value="${style.labelStyle || 'transparent'}"]`);
+            if (labelStyleRadio) labelStyleRadio.checked = true;
+            if (document.getElementById('labelColor')) document.getElementById('labelColor').value = style.labelColor || '#333333';
+            if (document.getElementById('labelStrokeColor')) document.getElementById('labelStrokeColor').value = style.labelStrokeColor || '#ffffff';
+            if (document.getElementById('labelStrokeWidth')) document.getElementById('labelStrokeWidth').value = style.labelStrokeWidth || 0;
+            document.getElementById('colorField').value = style.colorField || '';
+            toggleColorMapping();
+        }
+        
+        function selectIconShape(shape, element) {
+            if (!currentLayer || currentLayer.type !== 'point') return;
+            currentLayer.style.shape = shape;
+            document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            updateStyle();
+        }
+        
+        function updateStyle() {
+            if (!currentLayer) return;
+            
+            const type = currentLayer.type;
+            const style = currentLayer.style;
+            
+            if (type === 'point') {
+                style.size = parseInt(document.getElementById('markerSize').value);
+                style.color = document.getElementById('markerColor').value;
+                style.strokeWidth = parseInt(document.getElementById('markerStrokeWidth').value);
+                style.strokeColor = document.getElementById('markerStrokeColor').value;
+            } else if (type === 'polyline') {
+                style.color = document.getElementById('lineColor').value;
+                style.width = parseInt(document.getElementById('lineWidth').value);
+            } else if (type === 'polygon') {
+                style.fillColor = document.getElementById('polygonFillColor').value;
+                style.fillOpacity = parseInt(document.getElementById('polygonOpacity').value) / 100;
+                style.strokeColor = document.getElementById('polygonStrokeColor').value;
+                style.strokeWidth = parseInt(document.getElementById('polygonStrokeWidth').value);
+            }
+            
+            style.labelField = document.getElementById('labelField').value;
+            style.labelStyle = document.querySelector('input[name="labelStyle"]:checked')?.value || 'transparent';
+            style.labelColor = document.getElementById('labelColor')?.value || '#333333';
+            style.labelStrokeColor = document.getElementById('labelStrokeColor')?.value || '#ffffff';
+            style.labelStrokeWidth = parseInt(document.getElementById('labelStrokeWidth')?.value || '0');
+            style.colorField = document.getElementById('colorField').value;
+            
+            currentLayer.features.forEach(feature => renderFeature(feature, currentLayer));
+            renderLayers();
+            saveData();
+        }
+        
+        function renderFeature(feature, layer) {
+            if (!feature.overlay) return;
+            
+            const style = layer.style;
+            let color = null;
+            
+            // 根据字段着色
+            if (style.colorField && feature.properties[style.colorField]) {
+                const value = feature.properties[style.colorField];
+                color = layer.colorMapping[value];
+            }
+            
+            if (layer.type === 'point') {
+                feature.overlay.setIcon(createMarkerIcon(style, color));
+                if (style.labelField && feature.properties[style.labelField]) {
+                    const isFilled = style.labelStyle === 'filled';
+                    const labelColor = style.labelColor || '#333333';
+                    const strokeColor = style.labelStrokeColor || '#ffffff';
+                    const strokeWidth = style.labelStrokeWidth || 0;
+                    
+                    let bgStyle;
+                    if (isFilled) {
+                        bgStyle = `background: rgba(255,255,255,0.9); box-shadow: 0 1px 3px rgba(0,0,0,0.2);`;
+                    } else {
+                        bgStyle = `background: transparent;`;
+                    }
+                    
+                    // 描边效果
+                    let textShadow = '';
+                    if (strokeWidth > 0) {
+                        const sw = strokeWidth;
+                        const sc = strokeColor;
+                        textShadow = `text-shadow: ${sw}px 0 0 ${sc}, -${sw}px 0 0 ${sc}, 0 ${sw}px 0 ${sc}, 0 -${sw}px 0 ${sc}, ${sw}px ${sw}px 0 ${sc}, -${sw}px -${sw}px 0 ${sc}, ${sw}px -${sw}px 0 ${sc}, -${sw}px ${sw}px 0 ${sc};`;
+                    }
+                    
+                    feature.overlay.setLabel({
+                        content: `<div style="${bgStyle} ${textShadow} padding: 2px 6px; border-radius: 4px; font-size: 12px; white-space: nowrap; color: ${labelColor};">${escapeHtml(feature.properties[style.labelField])}</div>`,
+                        direction: 'top'
+                    });
+                } else {
+                    feature.overlay.setLabel({ content: '' });
+                }
+            } else if (layer.type === 'polyline') {
+                feature.overlay.setOptions({
+                    strokeColor: color || style.color,
+                    strokeWeight: style.width
+                });
+            } else if (layer.type === 'polygon') {
+                feature.overlay.setOptions({
+                    fillColor: color || style.fillColor,
+                    fillOpacity: style.fillOpacity,
+                    strokeColor: color || style.strokeColor,
+                    strokeWeight: style.strokeWidth
+                });
+            }
+        }
+        
+        // ==================== 颜色映射 ====================
+        function toggleColorMapping() {
+            const colorField = document.getElementById('colorField').value;
+            const panel = document.getElementById('colorMappingPanel');
+            
+            if (colorField) {
+                panel.style.display = 'block';
+                
+                // 首次选择字段着色时，自动为所有唯一值分配预设颜色
+                if (currentLayer && currentLayer.style.colorField !== colorField) {
+                    // 获取该字段的所有唯一值
+                    const values = [...new Set(currentLayer.features.map(f => f.properties[colorField]).filter(v => v))];
+                    const presetColors = getPresetColors(values.length);
+                    
+                    // 为没有设置颜色的值分配预设颜色
+                    values.forEach((value, index) => {
+                        if (!currentLayer.colorMapping[value]) {
+                            currentLayer.colorMapping[value] = presetColors[index % presetColors.length];
+                        }
+                    });
+                    
+                    // 更新当前图层的颜色字段设置
+                    currentLayer.style.colorField = colorField;
+                    
+                    // 立即更新地图样式
+                    updateStyle();
+                }
+                
+                renderColorMapping();
+            } else {
+                panel.style.display = 'none';
+                // 清除颜色字段设置
+                if (currentLayer) {
+                    currentLayer.style.colorField = '';
+                }
+            }
+        }
+        
+        function renderColorMapping() {
+            if (!currentLayer) return;
+                    
+            const colorField = document.getElementById('colorField').value;
+            const container = document.getElementById('colorMapList');
+                    
+            // 获取所有唯一值
+            const values = [...new Set(currentLayer.features.map(f => f.properties[colorField]).filter(v => v))];
+                    
+            // 获取预设配色方案
+            const presetColors = getPresetColors(values.length);
+                    
+            container.innerHTML = values.map((value, index) => {
+                // 如果该值没有已设置的颜色，从预设方案中分配并回写到 colorMapping
+                let color = currentLayer.colorMapping[value];
+                if (!color) {
+                    color = presetColors[index % presetColors.length];
+                    currentLayer.colorMapping[value] = color;
+                }
+                return `
+                    <div class="color-map-item" data-value="${escapeHtml(value)}">
+                        <input type="text" value="${escapeHtml(value)}" readonly>
+                        <input type="color" value="${color}">
+                    </div>
+                `;
+            }).join('');
+                    
+            // 使用事件委托绑定颜色选择器的 change 事件
+            container.querySelectorAll('.color-map-item input[type="color"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    const v = this.closest('.color-map-item').dataset.value;
+                    updateColorMapping(v, this.value);
+                });
+            });
+        }
+        
+        function addColorMap() {
+            if (!currentLayer) return;
+            const colorField = document.getElementById('colorField').value;
+            const value = prompt('输入字段值:');
+            if (value) {
+                currentLayer.colorMapping[value] = '#1677ff';
+                renderColorMapping();
+                updateStyle();
+            }
+        }
+        
+        function updateColorMapping(value, color) {
+            if (currentLayer) {
+                currentLayer.colorMapping[value] = color;
+                updateStyle();
+            }
+        }
+        
+        // 配色方案
+        const COLOR_SCHEMES = {
+            default: ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'],
+            warm: ['#ff4d4f', '#ff7a45', '#ffa940', '#ffc53d', '#ffec3d', '#ff7875', '#ff9c6e', '#ffc069'],
+            cool: ['#1677ff', '#096dd9', '#1890ff', '#36cfc9', '#13c2c2', '#40a9ff', '#69c0ff', '#5cdbd3'],
+            contrast: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'],
+            pastel: ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#eecbff', '#ffccf9', '#d4ffea']
+        };
+        
+        function applyColorScheme(schemeName) {
+            if (!currentLayer) return;
+            
+            const colorField = document.getElementById('colorField').value;
+            if (!colorField) return;
+            
+            // 获取所有唯一值
+            const values = [...new Set(currentLayer.features.map(f => f.properties[colorField]).filter(v => v))];
+            const scheme = COLOR_SCHEMES[schemeName] || COLOR_SCHEMES.default;
+            
+            // 自动分配颜色
+            values.forEach((value, index) => {
+                currentLayer.colorMapping[value] = scheme[index % scheme.length];
+            });
+            
+            renderColorMapping();
+            updateStyle();
+        }
+        
+        // ==================== 图例 ====================
+        function updateLegend() {
+            const container = document.getElementById('legendItems');
+            const visibleLayers = layers.filter(l => l.visible && l.features.length > 0);
+            
+            if (visibleLayers.length === 0) {
+                container.innerHTML = '<div style="color: #8c8c8c; font-size: 12px;">暂无数据</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            // 按图层显示图例
+            visibleLayers.forEach(layer => {
+                // 第一行：图层名称
+                html += `<div style="margin-bottom: 4px; font-weight: 600; font-size: 12px; color: #1f2329;">${layer.name}</div>`;
+                
+                // 第二行及以后：字段填充或默认颜色
+                if (layer.style.colorField && Object.keys(layer.colorMapping).length > 0) {
+                    // 显示字段名
+                    html += `<div style="margin-bottom: 2px; font-size: 11px; color: #595959; padding-left: 4px;">${layer.style.colorField}</div>`;
+                    Object.entries(layer.colorMapping).forEach(([value, color]) => {
+                        const count = layer.features.filter(f => f.properties[layer.style.colorField] === value).length;
+                        html += `<div class="legend-item" style="padding-left: 8px;"><div class="legend-color" style="background: ${color}"></div><span>${value} (${count})</span></div>`;
+                    });
+                } else {
+                    // 显示默认颜色
+                    html += `<div class="legend-item" style="padding-left: 8px;"><div class="legend-color" style="background: ${getLayerColor(layer)}"></div><span>默认 (${layer.features.length})</span></div>`;
+                }
+                
+                html += `<div style="margin-bottom: 12px;"></div>`;
+            });
+            
+            container.innerHTML = html || '<div style="color: #8c8c8c; font-size: 12px;">暂无数据</div>';
+        }
+        
+        // ==================== 数据表格 ====================
+        function updateDataTable() {
+            const thead = document.querySelector('#dataTable thead');
+            const tbody = document.querySelector('#dataTable tbody');
+            
+            if (!currentLayer || currentLayer.features.length === 0) {
+                thead.innerHTML = '';
+                tbody.innerHTML = '<tr><td style="text-align: center; color: #8c8c8c; padding: 20px;">暂无数据</td></tr>';
+                document.getElementById('recordCount').textContent = '0 条';
+                return;
+            }
+            
+            thead.innerHTML = '<tr><th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>' + currentLayer.fields.filter(f => f !== '图片').map(f => `<th>${f}</th>`).join('') + '</tr>';
+            
+            const filterField = document.getElementById('filterField').value;
+            const filterValue = document.getElementById('filterValue').value.toLowerCase();
+            
+            let filteredFeatures = currentLayer.features;
+            if (filterField && filterValue) {
+                filteredFeatures = filteredFeatures.filter(f => (f.properties[filterField] || '').toLowerCase().includes(filterValue));
+            }
+            
+            tbody.innerHTML = filteredFeatures.map(feature => `
+                <tr data-id="${feature.id}">
+                    <td><input type="checkbox" class="row-checkbox" value="${feature.id}" onchange="updateBatchDeleteBtn()"></td>
+                    ${currentLayer.fields.filter(f => f !== '图片').map(f => `<td onclick="drillDownById(${feature.id})">${escapeHtml(feature.properties[f] || '-')}</td>`).join('')}
+                </tr>
+            `).join('');
+            
+            document.getElementById('recordCount').textContent = `${filteredFeatures.length} 条 / ${currentLayer.features.length} 条`;
+            updateBatchDeleteBtn();
+        }
+        
+        function updateFieldSelects() {
+            if (!currentLayer) return;
+            const options = currentLayer.fields.map(f => `<option value="${f}">${f}</option>`).join('');
+            document.getElementById('filterField').innerHTML = '<option value="">选择字段</option>' + options;
+            document.getElementById('labelField').innerHTML = '<option value="">不显示标签</option>' + options;
+            document.getElementById('colorField').innerHTML = '<option value="">不使用</option>' + options;
+        }
+        
+        function applyFilter() {
+            updateDataTable();
+            const filterField = document.getElementById('filterField').value;
+            const filterValue = document.getElementById('filterValue').value.toLowerCase();
+            
+            if (currentLayer) {
+                currentLayer.features.forEach(feature => {
+                    if (feature.overlay) {
+                        const match = !filterField || !filterValue || (feature.properties[filterField] || '').toLowerCase().includes(filterValue);
+                        if (match) {
+                            feature.overlay.setMap(map);
+                        } else {
+                            feature.overlay.setMap(null);
+                        }
+                    }
+                });
+            }
+        }
+        
+        function clearFilter() {
+            document.getElementById('filterField').value = '';
+            document.getElementById('filterValue').value = '';
+            updateDataTable();
+            if (currentLayer) {
+                currentLayer.features.forEach(feature => {
+                    if (feature.overlay && currentLayer.visible) {
+                        feature.overlay.setMap(map);
+                    }
+                });
+            }
+        }
+        
+        // ==================== 下钻功能 ====================
+        function drillDown(feature) {
+            currentFeature = feature;
+            
+            // 查找第一个图片类型字段用于展示
+            const imageField = currentLayer.fields.find(f => currentLayer.fieldTypes?.[f] === 'image');
+            const imgContainer = document.getElementById('drillImageContainer');
+            
+            if (imageField) {
+                imgContainer.style.display = 'flex';
+                if (feature.properties[imageField]) {
+                    imgContainer.innerHTML = `<img src="${feature.properties[imageField]}" style="max-width: 100%; max-height: 100%; object-fit: contain;">`;
+                } else {
+                    imgContainer.innerHTML = '<div style="color: #999;">暂无图片</div>';
+                }
+            } else {
+                imgContainer.style.display = 'none';
+            }
+            
+            // 表格 - 显示所有字段（包括图片字段显示为"[图片]"）
+            const table = document.getElementById('drillTable');
+            table.innerHTML = currentLayer.fields.map(field => {
+                const fieldType = currentLayer.fieldTypes?.[field] || 'text';
+                let displayValue = feature.properties[field] || '-';
+                if (fieldType === 'image') {
+                    displayValue = displayValue ? '[图片]' : '-';
+                }
+                return `<tr><td>${escapeHtml(field)}</td><td>${escapeHtml(displayValue)}</td></tr>`;
+            }).join('');
+            
+            showModal('drillModal');
+        }
+        
+        function drillDownById(id) {
+            const feature = currentLayer.features.find(f => f.id === id);
+            if (feature) drillDown(feature);
+        }
+        
+        function editCurrentFeature() {
+            hideModal('drillModal');
+            const form = document.getElementById('editForm');
+            form.innerHTML = currentLayer.fields.map(field => {
+                const fieldType = currentLayer.fieldTypes?.[field] || 'text';
+                const value = currentFeature.properties[field] || '';
+                
+                // 图片类型字段
+                if (fieldType === 'image') {
+                    return `
+                        <div class="form-group">
+                            <label>${field}</label>
+                            <div class="upload-area" onclick="document.getElementById('imgUpload_${field}').click()">
+                                <div>📷 点击上传图片</div>
+                                <input type="file" id="imgUpload_${field}" accept="image/*" onchange="handleImageUploadForField(this, '${field}')" style="display: none;">
+                            </div>
+                            <div id="imgPreview_${field}" style="margin-top: 8px; ${value ? '' : 'display: none;'}">
+                                <img src="${value}" style="max-width: 100px; max-height: 100px; border-radius: 4px;">
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 数字类型字段
+                if (fieldType === 'number') {
+                    return `
+                        <div class="form-group">
+                            <label>${field}</label>
+                            <input type="number" id="edit_${field}" value="${value}">
+                        </div>
+                    `;
+                }
+                
+                // 文本类型字段（默认）
+                return `
+                    <div class="form-group">
+                        <label>${field}</label>
+                        <input type="text" id="edit_${field}" value="${value}">
+                    </div>
+                `;
+            }).join('');
+            showModal('editModal');
+        }
+        
+        function handleImageUploadForField(input, fieldName) {
+            if (!input.files || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentFeature.properties[fieldName] = e.target.result;
+                // 更新预览
+                const preview = document.getElementById(`imgPreview_${fieldName}`);
+                if (preview) {
+                    preview.style.display = 'block';
+                    preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 4px;">`;
+                }
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+        
+        function handleImageUpload(input) {
+            if (!input.files || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentFeature.properties['图片'] = e.target.result;
+                editCurrentFeature(); // 刷新表单显示图片
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+        
+        function saveEdit() {
+            if (!currentFeature) return;
+            currentLayer.fields.forEach(field => {
+                if (field !== '图片') {
+                    const input = document.getElementById(`edit_${field}`);
+                    if (input) currentFeature.properties[field] = input.value;
+                }
+            });
+            // 图片已在 handleImageUpload 中保存到 currentFeature.properties['图片']
+            renderFeature(currentFeature, currentLayer);
+            hideModal('editModal');
+            renderLayers();
+            saveData();
+            // 不再弹出 drillDown，直接返回数据列表
+        }
+        
+        function deleteCurrentFeature() {
+            if (!currentFeature || !confirm('确定删除该数据吗？')) return;
+            const index = currentLayer.features.findIndex(f => f.id === currentFeature.id);
+            if (index > -1) {
+                if (currentLayer.features[index].overlay) {
+                    currentLayer.features[index].overlay.setMap(null);
+                }
+                currentLayer.features.splice(index, 1);
+            }
+            hideModal('drillModal');
+            renderLayers();
+            saveData();
+        }
+        
+        // ==================== 新建图层 ====================
+        function showCreateLayerModal() {
+            document.getElementById('newLayerName').value = '';
+            document.getElementById('newLayerType').value = 'point';
+            document.getElementById('fieldList').innerHTML = `
+                <div class="field-item">
+                    <input type="text" value="名称" readonly style="background: #f5f5f5;">
+                    <select disabled><option>文本</option></select>
+                </div>
+            `;
+            showModal('layerModal');
+        }
+        
+        function addField() {
+            const div = document.createElement('div');
+            div.className = 'field-item';
+            div.innerHTML = `
+                <input type="text" placeholder="字段名称" style="flex: 2;">
+                <select style="flex: 1;">
+                    <option value="text">文本</option>
+                    <option value="number">数字</option>
+                    <option value="image">图片</option>
+                </select>
+                <span style="cursor: pointer; color: #ff4d4f; width: 20px; text-align: center;" onclick="this.parentElement.remove()">✕</span>
+            `;
+            document.getElementById('fieldList').appendChild(div);
+        }
+        
+        function createLayer() {
+            const name = document.getElementById('newLayerName').value.trim();
+            const type = document.getElementById('newLayerType').value;
+            if (!name) { alert('请输入图层名称'); return; }
+            
+            const fields = ['名称'];
+            const fieldTypes = { '名称': 'text' };
+            
+            document.querySelectorAll('#fieldList .field-item').forEach((item, index) => {
+                if (index === 0) return; // 跳过默认的"名称"字段
+                const input = item.querySelector('input');
+                const select = item.querySelector('select');
+                if (input && input.value.trim()) {
+                    const fieldName = input.value.trim();
+                    const fieldType = select ? select.value : 'text';
+                    fields.push(fieldName);
+                    fieldTypes[fieldName] = fieldType;
+                }
+            });
+            
+            const layer = createLayerObj(name, type, fields, fieldTypes);
+            layers.push(layer);
+            hideModal('layerModal');
+            renderLayers();
+            saveData();
+            selectLayer(layer.id);
+        }
+        
+        // ==================== 底图切换 ====================
+        function setBasemap(type, element) {
+            document.querySelectorAll('.basemap-item').forEach(el => el.classList.remove('active'));
+            if (element) element.classList.add('active');
+            const styles = { 'normal': 'amap://styles/normal', 'light': 'amap://styles/whitesmoke', 'grey': 'amap://styles/grey', 'dark': 'amap://styles/dark' };
+            if (styles[type]) map.setMapStyle(styles[type]);
+        }
+        
+        function setBasemapFromPanel(type) {
+            // 更新面板按钮状态
+            document.querySelectorAll('[id^="btnNormal"], [id^="btnLight"], [id^="btnGrey"], [id^="btnDark"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn' + type.charAt(0).toUpperCase() + type.slice(1))?.classList.add('active');
+            // 更新地图底部按钮状态
+            document.querySelectorAll('.basemap-item').forEach(el => el.classList.remove('active'));
+            const basemapMap = { 'normal': 0, 'light': 1, 'grey': 2, 'dark': 3 };
+            const items = document.querySelectorAll('.basemap-item');
+            if (items[basemapMap[type]]) items[basemapMap[type]].classList.add('active');
+            // 设置底图
+            const styles = { 'normal': 'amap://styles/normal', 'light': 'amap://styles/whitesmoke', 'grey': 'amap://styles/grey', 'dark': 'amap://styles/dark' };
+            if (styles[type]) map.setMapStyle(styles[type]);
+        }
+        
+        // ==================== 底图要素控制 ====================
+        let mapFeatures = { bg: true, road: true, building: true, point: true };
+        
+        function toggleMapFeature(feature, checkbox) {
+            mapFeatures[feature] = checkbox.checked;
+            
+            // 使用 setFeatures API 控制底图要素显示
+            const features = [];
+            if (mapFeatures.bg) features.push('bg');
+            if (mapFeatures.road) features.push('road');
+            if (mapFeatures.building) features.push('building');
+            if (mapFeatures.point) features.push('point');
+            
+            map.setFeatures(features);
+        }
+        
+        // ==================== 图层删除 ====================
+        function deleteLayer(layerId) {
+            if (!confirm('确定删除该图层吗？图层中的所有数据将被清空。')) return;
+            
+            const layerIndex = layers.findIndex(l => l.id === layerId);
+            if (layerIndex === -1) return;
+            
+            const layer = layers[layerIndex];
+            
+            // 清除地图上的覆盖物
+            layer.features.forEach(f => {
+                if (f.overlay) f.overlay.setMap(null);
+            });
+            
+            // 从数组中移除
+            layers.splice(layerIndex, 1);
+            
+            // 如果删除的是当前图层，重置当前图层
+            if (currentLayer && currentLayer.id === layerId) {
+                currentLayer = layers.length > 0 ? layers[0] : null;
+            }
+            
+            renderLayers();
+            
+            if (currentLayer) {
+                document.getElementById('stylePanel').style.display = 'block';
+                loadStylePanel();
+                updateFieldSelects();
+            } else {
+                document.getElementById('stylePanel').style.display = 'none';
+            }
+            
+            // 保存数据
+            saveData();
+        }
+        
+        // ==================== 批量选择删除 ====================
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateBatchDeleteBtn();
+        }
+        
+        function updateBatchDeleteBtn() {
+            const checked = document.querySelectorAll('.row-checkbox:checked');
+            const btn = document.getElementById('batchDeleteBtn');
+            btn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+            btn.textContent = `批量删除 (${checked.length})`;
+        }
+        
+        function batchDelete() {
+            const checked = document.querySelectorAll('.row-checkbox:checked');
+            const ids = Array.from(checked).map(cb => parseInt(cb.value));
+            
+            if (ids.length === 0) return;
+            if (!confirm(`确定删除选中的 ${ids.length} 条数据吗？`)) return;
+            
+            ids.forEach(id => {
+                const index = currentLayer.features.findIndex(f => f.id === id);
+                if (index > -1) {
+                    if (currentLayer.features[index].overlay) {
+                        currentLayer.features[index].overlay.setMap(null);
+                    }
+                    currentLayer.features.splice(index, 1);
+                }
+            });
+            
+            renderLayers();
+            saveData();
+        }
+        
+        // ==================== 标签页切换 ====================
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+            if (tabName === 'data') updateDataTable();
+        }
+        
+        // ==================== 弹窗控制 ====================
+        function showModal(id) { document.getElementById(id).classList.add('show'); }
+        function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+        });
+        
+        // ==================== 折叠面板 ====================
+        function toggleCollapse(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            content.classList.toggle('collapsed');
+        }
+        
+        // ==================== 侧边栏折叠 ====================
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.sidebar-toggle');
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                toggle.innerHTML = '▶';
+                toggle.title = '展开';
+            } else {
+                toggle.innerHTML = '◀';
+                toggle.title = '折叠';
+            }
+            
+            // 触发地图重绘以适应新尺寸
+            setTimeout(() => {
+                if (map) map.resize();
+            }, 300);
+        }
+        
+        // ==================== 数据导出/导入 ====================
+        function exportData() {
+            try {
+                const dataToExport = layers.map(layer => ({
+                    id: layer.id,
+                    name: layer.name,
+                    type: layer.type,
+                    visible: layer.visible,
+                    fields: layer.fields,
+                    fieldTypes: layer.fieldTypes,
+                    style: layer.style,
+                    colorMapping: layer.colorMapping,
+                    features: layer.features.map(f => ({
+                        id: f.id,
+                        geometry: f.geometry,
+                        properties: f.properties
+                    }))
+                }));
+                
+                const dataStr = JSON.stringify(dataToExport, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `地图数据_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('数据导出成功！');
+            } catch (e) {
+                console.error('导出数据失败:', e);
+                alert('导出数据失败: ' + e.message);
+            }
+        }
+        
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedData)) {
+                        alert('数据格式错误！');
+                        return;
+                    }
+                    
+                    if (!confirm(`确定导入 ${importedData.length} 个图层的数据吗？当前数据将被覆盖。`)) {
+                        input.value = '';
+                        return;
+                    }
+                    
+                    // 清除现有数据
+                    layers.forEach(layer => {
+                        layer.features.forEach(f => { if (f.overlay) f.overlay.setMap(null); });
+                    });
+                    
+                    // 恢复导入的数据
+                    layers = importedData.map(layerData => ({
+                        ...layerData,
+                        features: layerData.features.map(f => ({
+                            ...f,
+                            overlay: null
+                        }))
+                    }));
+                    
+                    // 重新创建覆盖物
+                    recreateOverlays();
+                    renderLayers();
+                    saveData();
+                    
+                    if (layers.length > 0) {
+                        selectLayer(layers[0].id);
+                    }
+                    
+                    alert('数据导入成功！');
+                } catch (err) {
+                    console.error('导入数据失败:', err);
+                    alert('导入数据失败: ' + err.message);
+                }
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+        
+        function clearAllData() {
+            if (!confirm('确定清空所有数据吗？此操作不可恢复！')) return;
+            
+            layers.forEach(layer => {
+                layer.features.forEach(f => { if (f.overlay) f.overlay.setMap(null); });
+            });
+            layers = [];
+            currentLayer = null;
+            
+            renderLayers();
+            saveData();
+            
+            document.getElementById('stylePanel').style.display = 'none';
+            alert('所有数据已清空！');
+        }
+        
+    </script>
+</body>
+</html>
